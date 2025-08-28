@@ -1,0 +1,38 @@
+services:
+  mle-api:
+    build: .
+    # Remove external port mapping - nginx will handle external access
+    # ports:
+    #   - "8000:8000"
+    volumes:
+      # Mount model and data directories for easy updates
+      - ./model:/app/model:ro
+      - ./data:/app/data:ro
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Scaling is handled via docker-compose --scale flag
+    deploy:
+      replicas: 2
+
+  # Load balancer for scaling
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - mle-api
+    restart: unless-stopped
+
+networks:
+  default:
+    name: housing-api-network
+
