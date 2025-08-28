@@ -2,7 +2,7 @@ import logging
 import time
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.params import Depends
 
 from core.dependencies import get_model_service
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/model-info")
-async def model_info(model_service: ModelService = Depends(get_model_service)):
+async def model_info(request: Request, model_service: ModelService = Depends(get_model_service)):
     """Get model information"""
     return {
         "model_version": model_service.model_version,
@@ -26,12 +26,12 @@ async def model_info(model_service: ModelService = Depends(get_model_service)):
     }
 
 @router.post("/reload-model")
-def reload_model(model_service: ModelService = Depends(get_model_service)):
+def reload_model(request: Request, model_service: ModelService = Depends(get_model_service)):
     model_service.reload_model()
     return {"status": "reloaded", "version": model_service.model_version}
 
 @router.post("/predict/full", response_model=PredictionResponse)
-async def predict_full_features(request: FullFeatureRequest, model_service: ModelService = Depends(get_model_service)):
+async def predict_full_features(request: FullFeatureRequest, fastapi_request: Request, model_service: ModelService = Depends(get_model_service)):
     """Predict house price using all available features"""
 
     start_time = time.time()
@@ -72,7 +72,7 @@ async def predict_full_features(request: FullFeatureRequest, model_service: Mode
 
 
 @router.post("/predict/minimal", response_model=PredictionResponse)
-async def predict_minimal_features(request: MinimalFeatureRequest, model_service: ModelService = Depends(get_model_service)):
+async def predict_minimal_features(request: MinimalFeatureRequest, fastapi_request: Request, model_service: ModelService = Depends(get_model_service)):
     """Predict house price using only essential features (bonus endpoint)"""
     import time
     start_time = time.time()

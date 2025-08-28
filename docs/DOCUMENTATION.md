@@ -106,7 +106,8 @@ mle-project-challenge-2/
 │       └── model_service.py      # Model prediction service
 ├── tools/                        # Development and testing tools
 │   ├── evaluate_model.py         # Model evaluation script
-│   └── test_api.py               # API testing script
+│   ├── test_api.py               # API testing script
+│   └── test_watchdog.py          # Watchdog functionality test script
 ├── evaluation_results/            # Model evaluation outputs
 │   ├── evaluation_report.txt     # Text evaluation report
 │   └── model_evaluation.png      # Performance visualization
@@ -204,6 +205,8 @@ cat evaluation_results/evaluation_report.txt
 | `/model-info` | GET | Model information and features |
 | `/predict/full` | POST | Full-feature prediction endpoint |
 | `/predict/minimal` | POST | Minimal-feature prediction endpoint |
+| `/watchdog-status` | GET | Model watchdog monitoring status |
+| `/reload-model` | POST | Manual model reload endpoint |
 
 ### Full Features Endpoint
 
@@ -401,6 +404,19 @@ uv run python tools/evaluate_model.py
 - Generalization testing on unseen data
 - Performance visualization and reporting
 
+### Watchdog Testing
+
+```bash
+# Test the model watchdog functionality
+uv run python tools/test_watchdog.py
+```
+
+The watchdog test script:
+- Verifies watchdog is active and monitoring
+- Tests manual model reload functionality
+- Monitors model version changes
+- Provides instructions for testing automatic reloading
+
 ## Configuration
 
 ### Environment Variables
@@ -477,6 +493,59 @@ The API includes comprehensive error handling:
 2. **Replace model files** in the `model/` directory
 3. **Restart the service** or use rolling updates
 4. **Verify performance** using `tools/evaluate_model.py`
+
+### Model Watchdog and Hot Reloading
+
+The application includes an intelligent model watchdog system that automatically monitors for model file changes and reloads the model without service interruption.
+
+#### Watchdog Features
+
+- **Automatic Detection**: Monitors `model/model.pkl` for file modifications
+- **Hot Reloading**: Automatically reloads model when changes are detected
+- **Debouncing**: Prevents multiple rapid reloads within 1 second
+- **Background Operation**: Runs in daemon thread, no impact on API performance
+- **Error Handling**: Graceful error handling with detailed logging
+
+#### Watchdog Endpoints
+
+```bash
+# Check watchdog status
+curl http://localhost:8000/watchdog-status
+
+# Manual model reload (if needed)
+curl -X POST http://localhost:8000/reload-model
+```
+
+#### Watchdog Response Format
+
+```json
+{
+  "watchdog_active": true,
+  "model_file_path": "model/model.pkl",
+  "last_model_load": 1703123456.789,
+  "model_version": "1703123456.789",
+  "message": "Model watchdog is active and monitoring for file changes"
+}
+```
+
+#### Testing the Watchdog
+
+```bash
+# Test watchdog functionality
+python tools/test_watchdog.py
+
+# Simulate model update (in another terminal)
+cp model/model.pkl model/model.pkl.backup
+# Modify model file or replace with new version
+# Watch for automatic reload in API logs
+```
+
+#### Benefits
+
+- **Zero Downtime**: Model updates without API interruption
+- **Development Friendly**: Instant model reloading during development
+- **Production Ready**: Automatic handling of model deployments
+- **Monitoring**: Clear visibility into watchdog status and model versions
 
 ## Deliverable Requirements Compliance
 
