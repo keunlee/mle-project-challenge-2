@@ -34,6 +34,7 @@ A production-ready machine learning solution that provides a scalable RESTful AP
 - [Testing](#testing)
   - [API Testing](#api-testing)
   - [Model Testing](#model-testing)
+  - [Watchdog Testing](#watchdog-testing)
 - [Configuration](#configuration)
   - [Environment Variables](#environment-variables)
   - [Docker Configuration](#docker-configuration)
@@ -46,6 +47,7 @@ A production-ready machine learning solution that provides a scalable RESTful AP
 - [Development](#development)
   - [Adding New Features](#adding-new-features)
   - [Model Updates](#model-updates)
+  - [Model Watchdog and Hot Reloading](#model-watchdog-and-hot-reloading)
 - [Deliverable Requirements Compliance](#deliverable-requirements-compliance)
   - [Requirement 1: RESTful API Endpoint](#requirement-1-restful-api-endpoint)
   - [Requirement 2: Test Script](#requirement-2-test-script)
@@ -54,10 +56,6 @@ A production-ready machine learning solution that provides a scalable RESTful AP
   - [Scaling Commands](#scaling-commands)
   - [Monitoring](#monitoring-1)
   - [Load Testing](#load-testing)
-- [Contributing](#contributing)
-- [License](#license)
-- [Support](#support)
-- [Success Metrics](#success-metrics)
 
 ## Project Overview
 
@@ -79,6 +77,72 @@ This solution implements a production-ready, horizontally scalable API service t
 - **Includes comprehensive testing** and model evaluation tools
 - **Supports zero-downtime deployments** and model updates
 - **Uses modern containerization** with Docker Compose and uv package management
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        A[Client Applications]
+        B[Web Browsers]
+        C[Mobile Apps]
+    end
+    
+    subgraph "Load Balancer Layer"
+        D[Nginx Load Balancer<br/>Port 8000]
+    end
+    
+    subgraph "API Layer"
+        E[FastAPI Instance 1<br/>Port 8000]
+        F[FastAPI Instance 2<br/>Port 8000]
+        G[FastAPI Instance N<br/>Port 8000]
+    end
+    
+    subgraph "Shared Resources"
+        H[Shared Model Volume<br/>model/model.pkl]
+        I[Shared Data Volume<br/>data/]
+    end
+    
+    subgraph "Model Management"
+        J[Model Watchdog<br/>File Monitoring]
+        K[Hot Reloading<br/>Zero Downtime]
+    end
+    
+    A --> D
+    B --> D
+    C --> D
+    
+    D --> E
+    D --> F
+    D --> G
+    
+    E --> H
+    F --> H
+    G --> H
+    
+    E --> I
+    F --> I
+    G --> I
+    
+    H --> J
+    J --> K
+    
+    style D fill:#e1f5fe
+    style E fill:#f3e5f5
+    style F fill:#f3e5f5
+    style G fill:#f3e5f5
+    style H fill:#e8f5e8
+    style I fill:#e8f5e8
+    style J fill:#fff3e0
+    style K fill:#fff3e0
+```
+
+**Key Components:**
+- **Load Balancer**: Nginx distributes requests across multiple API instances
+- **API Instances**: Scalable FastAPI containers with automatic model reloading
+- **Shared Volumes**: Model and data files accessible to all containers
+- **Model Watchdog**: Automatic detection and reloading of model updates
+- **Hot Reloading**: Zero-downtime model deployments across all instances
 
 ## Project Structure
 
@@ -107,13 +171,20 @@ mle-project-challenge-2/
 ├── tools/                        # Development and testing tools
 │   ├── evaluate_model.py         # Model evaluation script
 │   ├── test_api.py               # API testing script
-│   └── test_watchdog.py          # Watchdog functionality test script
+│   ├── test_watchdog.py          # Watchdog functionality test script
+│   └── test_multi_container_reload.py # Multi-container hot reload testing
+├── tests/                        # Testing framework structure
+│   ├── unit/                     # Unit tests
+│   └── bdd/                      # Behavioral (BDD) tests
 ├── evaluation_results/            # Model evaluation outputs
 │   ├── evaluation_report.txt     # Text evaluation report
 │   └── model_evaluation.png      # Performance visualization
+├── docs/                         # Documentation
+│   └── DOCUMENTATION.md          # Comprehensive project documentation
 ├── Dockerfile                     # Container configuration
 ├── docker-compose.yml             # Multi-service deployment with scaling
 ├── nginx.conf                     # Load balancer configuration
+├── Makefile                       # Development automation and commands
 ├── pyproject.toml                 # Project configuration and dependencies
 ├── uv.lock                        # Locked dependency versions
 ├── conda_environment.yml          # Conda environment (alternative)
@@ -138,6 +209,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies
 uv sync
+
+# Install development dependencies (includes testing tools)
+uv run pip install pytest pytest-bdd ruff
+
+# Alternative: Using Makefile
+make install-dev
 ```
 
 #### Option B: Using Conda
@@ -162,16 +239,35 @@ This will create the `model/` directory with the trained model and feature list.
 
 #### Option A: Docker Compose (Production - Recommended)
 ```bash
-# Start with 3 API instances and nginx load balancer
+# Start with API instances and nginx load balancer
 docker-compose up -d
+
+# Alternative: Using Makefile
+make docker
 
 # Scale to more instances if needed
 docker-compose up -d --scale mle-api=5
+
+# Check service status
+docker-compose ps
+
+# Alternative: Using Makefile
+make docker-status
+
+# View logs
+docker-compose logs
+
+# Alternative: Using Makefile
+make docker-logs
 ```
 
 #### Option B: Local Development
 ```bash
+# Start development server with auto-reload
 uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Alternative: Using Makefile
+make dev
 ```
 
 ### 4. Test the API
@@ -182,6 +278,9 @@ curl http://localhost:8000/health
 
 # Run comprehensive tests
 uv run python tools/test_api.py
+
+# Alternative: Using Makefile
+make test-unit
 ```
 
 ### 5. Evaluate the model
@@ -189,6 +288,9 @@ uv run python tools/test_api.py
 ```bash
 # Run model evaluation
 uv run python tools/evaluate_model.py
+
+# Alternative: Using Makefile
+make evaluate
 
 # View results
 cat evaluation_results/evaluation_report.txt
@@ -319,6 +421,12 @@ docker-compose up -d --scale mle-api=5
 docker-compose up -d --scale mle-api=2
 ```
 
+**Multi-Container Hot Reloading:**
+- All containers share the same model volume for synchronized updates
+- Model watchdog automatically reloads models across all instances
+- Zero-downtime deployments with automatic failover
+- Test with: `uv run python tools/test_multi_container_reload.py`
+
 ## Model Evaluation
 
 The solution includes comprehensive model evaluation tools:
@@ -328,6 +436,9 @@ The solution includes comprehensive model evaluation tools:
 ```bash
 # Run comprehensive evaluation
 uv run python tools/evaluate_model.py
+
+# Alternative: Using Makefile
+make evaluate
 
 # View results
 cat evaluation_results/evaluation_report.txt
@@ -383,6 +494,9 @@ For production auto-scaling, the architecture supports:
 ```bash
 # Test the load-balanced API
 uv run python tools/test_api.py
+
+# Alternative: Using Makefile
+make test-unit
 ```
 
 The test script:
@@ -396,6 +510,9 @@ The test script:
 ```bash
 # Run comprehensive model evaluation
 uv run python tools/evaluate_model.py
+
+# Alternative: Using Makefile
+make evaluate
 ```
 
 **Meets deliverable requirement #3**: Model performance evaluation including:
@@ -409,6 +526,9 @@ uv run python tools/evaluate_model.py
 ```bash
 # Test the model watchdog functionality
 uv run python tools/test_watchdog.py
+
+# Alternative: Using Makefile
+make test-watchdog
 ```
 
 The watchdog test script:
@@ -416,6 +536,130 @@ The watchdog test script:
 - Tests manual model reload functionality
 - Monitors model version changes
 - Provides instructions for testing automatic reloading
+- **Multi-container testing**: Validates hot reloading across multiple container instances
+
+**Multi-Container Testing:**
+```bash
+# Test multi-container hot reloading
+uv run python tools/test_multi_container_reload.py
+
+# Alternative: Using Makefile
+make test-multi-reload
+```
+
+### Model Watchdog and Hot Reloading
+
+The application includes an intelligent model watchdog system that automatically monitors for model file changes and reloads the model without service interruption.
+
+#### Watchdog Features
+
+- **Automatic Detection**: Monitors `model/model.pkl` for file modifications
+- **Hot Reloading**: Automatically reloads model when changes are detected
+- **Debouncing**: Prevents multiple rapid reloads within 1 second
+- **Background Operation**: Runs in daemon thread, no impact on API performance
+- **Error Handling**: Graceful error handling with detailed logging
+
+#### Watchdog Endpoints
+
+```bash
+# Check watchdog status
+curl http://localhost:8000/watchdog-status
+
+# Manual model reload (if needed)
+curl -X POST http://localhost:8000/reload-model
+```
+
+#### Watchdog Response Format
+
+```json
+{
+  "watchdog_enabled": true,
+  "container_id": "29fb2959cbda",
+  "model_directory": "model",
+  "debounce_time": 2.0,
+  "shared_volume": true,
+  "multi_container_ready": true,
+  "model_file_exists": true,
+  "model_file_size": 4410938,
+  "model_file_modified": 1756408819.3751538,
+  "model_file_path": "model/model.pkl",
+  "model_service_status": {
+    "model_loaded": true,
+    "model_version": "1756408819.3751538",
+    "model_path": "model/model.pkl",
+    "last_model_load": 1756408819.3751538
+  },
+  "message": "Model watchdog is active and monitoring for file changes across all containers"
+}
+```
+
+#### Testing the Watchdog
+
+```bash
+# Test watchdog functionality
+uv run python tools/test_watchdog.py
+
+# Alternative: Using Makefile
+make test-watchdog
+
+# Simulate model update (in another terminal)
+cp model/model.pkl model/model.pkl.backup
+# Modify model file or replace with new version
+# Watch for automatic reload in API logs
+```
+
+#### Benefits
+
+- **Zero Downtime**: Model updates without API interruption
+- **Development Friendly**: Instant model reloading during development
+- **Production Ready**: Automatic handling of model deployments
+- **Monitoring**: Clear visibility into watchdog status and model versions
+
+#### Multi-Container Support
+
+The watchdog system works seamlessly across multiple container instances:
+
+- **Shared Volume Monitoring**: All containers monitor the same mounted model directory
+- **Container Identification**: Each container reports its status with unique container ID
+- **Synchronized Reloading**: Model changes propagate to all containers automatically
+- **Load Distribution**: Nginx distributes requests across healthy, updated containers
+
+**Environment Variables:**
+- `MODEL_WATCHDOG_ENABLED=true/false` - Enable/disable watchdog per container
+- `MODEL_RELOAD_DEBOUNCE=2.0` - Set debounce time in seconds (prevents rapid reloads)
+
+**Testing Multi-Container Functionality:**
+```bash
+# Test multi-container hot reloading
+uv run python tools/test_multi_container_reload.py
+
+# Alternative: Using Makefile
+make test-multi-reload
+
+# Check watchdog status across containers
+curl http://localhost:8000/watchdog-status
+
+# Monitor reload activity in logs
+docker-compose logs mle-api | grep -E "(reloading|file changed)"
+```
+
+### Testing Summary with Makefile Alternatives
+
+For convenience, here's a summary of all testing commands with their Makefile alternatives:
+
+| Test Type | Direct Command | Makefile Alternative | Description |
+|-----------|----------------|---------------------|-------------|
+| **API Testing** | `uv run python tools/test_api.py` | `make test-unit` | Test API endpoints and functionality |
+| **Model Evaluation** | `uv run python tools/evaluate_model.py` | `make evaluate` | Comprehensive model performance analysis |
+| **Watchdog Testing** | `uv run python tools/test_watchdog.py` | `make test-watchdog` | Test model watchdog functionality |
+| **Multi-Container Testing** | `uv run python tools/test_multi_container_reload.py` | `make test-multi-reload` | Test hot reloading across containers |
+| **Unit Tests** | `uv run pytest tests/unit/` | `make test-unit` | Run unit tests in tests/unit/ |
+| **BDD Tests** | `uv run pytest tests/bdd/` | `make test-bdd` | Run behavioral tests in tests/bdd/ |
+| **All Tests** | `uv run pytest tests/` | `make test-all` | Run unit and BDD tests (pytest-based) |
+| **Comprehensive Testing** | Multiple commands | `make test-comprehensive` | Run all test types (unit + BDD + watchdog + multi-container + evaluation) |
+| **Linting** | `uv run ruff check src/ tests/ tools/` | `make lint` | Check code quality with ruff |
+
+**Note**: The `make test-unit` target runs pytest on the `tests/unit/` directory, while `make test-watchdog` specifically tests the model watchdog functionality using `tools/test_watchdog.py`.
 
 ## Configuration
 
@@ -494,58 +738,7 @@ The API includes comprehensive error handling:
 3. **Restart the service** or use rolling updates
 4. **Verify performance** using `tools/evaluate_model.py`
 
-### Model Watchdog and Hot Reloading
 
-The application includes an intelligent model watchdog system that automatically monitors for model file changes and reloads the model without service interruption.
-
-#### Watchdog Features
-
-- **Automatic Detection**: Monitors `model/model.pkl` for file modifications
-- **Hot Reloading**: Automatically reloads model when changes are detected
-- **Debouncing**: Prevents multiple rapid reloads within 1 second
-- **Background Operation**: Runs in daemon thread, no impact on API performance
-- **Error Handling**: Graceful error handling with detailed logging
-
-#### Watchdog Endpoints
-
-```bash
-# Check watchdog status
-curl http://localhost:8000/watchdog-status
-
-# Manual model reload (if needed)
-curl -X POST http://localhost:8000/reload-model
-```
-
-#### Watchdog Response Format
-
-```json
-{
-  "watchdog_active": true,
-  "model_file_path": "model/model.pkl",
-  "last_model_load": 1703123456.789,
-  "model_version": "1703123456.789",
-  "message": "Model watchdog is active and monitoring for file changes"
-}
-```
-
-#### Testing the Watchdog
-
-```bash
-# Test watchdog functionality
-python tools/test_watchdog.py
-
-# Simulate model update (in another terminal)
-cp model/model.pkl model/model.pkl.backup
-# Modify model file or replace with new version
-# Watch for automatic reload in API logs
-```
-
-#### Benefits
-
-- **Zero Downtime**: Model updates without API interruption
-- **Development Friendly**: Instant model reloading during development
-- **Production Ready**: Automatic handling of model deployments
-- **Monitoring**: Clear visibility into watchdog status and model versions
 
 ## Deliverable Requirements Compliance
 
@@ -572,7 +765,7 @@ cp model/model.pkl model/model.pkl.backup
 ### Scaling Commands
 
 ```bash
-# Start with 3 instances
+# Start with API instances and load balancer
 docker-compose up -d
 
 # Scale to 5 instances
@@ -598,7 +791,7 @@ curl http://localhost:8000/nginx_status
 curl http://localhost:8000/health
 
 # View logs
-docker-compose logs -f
+docker-compose logs
 ```
 
 ### Load Testing
@@ -611,34 +804,4 @@ done
 wait
 ```
 
-## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests and documentation
-5. Submit a pull request
-
-## License
-
-This project is part of the phData Machine Learning Engineer Project Challenge 2.
-
-## Support
-
-For issues and questions:
-1. Check the logs: `docker-compose logs`
-2. Verify service status: `docker-compose ps`
-3. Test API health: `curl http://localhost:8000/health`
-4. Check nginx status: `curl http://localhost:8000/nginx_status`
-
-## Success Metrics
-
-This solution successfully addresses all phData MLE project requirements:
-
-- **Production-ready API** with horizontal scaling
-- **Zero-downtime deployments** and model updates
-- **Comprehensive testing** and evaluation
-- **Modern containerization** with Docker Compose
-- **Load balancing** with nginx
-- **Bonus features** (minimal-feature endpoint)
-- **Real-world scalability** considerations

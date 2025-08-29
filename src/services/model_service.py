@@ -46,9 +46,15 @@ class ModelService:
             current_mtime = os.path.getmtime(self.model_path)
             if current_mtime != self.model_mtime:
                 logger.info("Reloading model due to file change...")
-                self.load_model()
+                # Release lock before calling load_model to avoid deadlock
+                should_reload = True
             else:
                 logger.info("Model file unchanged. No reload needed.")
+                should_reload = False
+        
+        # Call load_model outside the lock to avoid deadlock
+        if should_reload:
+            self.load_model()
 
     # Load demographics data
     def load_demographics(self):

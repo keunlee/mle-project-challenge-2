@@ -1,16 +1,21 @@
 # Makefile for MLE Project Challenge 2
 # House Price Prediction API with Model Watchdog
 
-.PHONY: help dev docker test-unit test-bdd test-all lint clean
+.PHONY: help dev docker test-unit test-bdd test-watchdog test-all test-comprehensive test-watchdog-with-server lint clean test-multi-reload evaluate
 
 # Default target
 help:
 	@echo "Available targets:"
 	@echo "  dev         - Run API server in development mode"
 	@echo "  docker      - Run API server using Docker Compose"
-	@echo "  test-unit   - Run unit tests"
+	@echo "  test-unit   - Run unit tests (pytest on tests/unit/)"
 	@echo "  test-bdd    - Run behavioral (BDD) tests"
+	@echo "  test-watchdog - Test model watchdog functionality"
+	@echo "  test-watchdog-with-server - Start server and test watchdog"
 	@echo "  test-all    - Run all tests (unit + BDD)"
+	@echo "  test-comprehensive - Run all test types (unit + BDD + watchdog + multi-container + evaluation)"
+	@echo "  test-multi-reload - Test multi-container hot reloading"
+	@echo "  evaluate    - Run comprehensive model evaluation"
 	@echo "  lint        - Run linting with ruff"
 	@echo "  clean       - Clean up temporary files and containers"
 	@echo "  help        - Show this help message"
@@ -32,6 +37,7 @@ docker:
 	@echo "🌐 API will be available at: http://localhost:8000"
 	@echo "⚖️  Load balancer (nginx) will distribute requests"
 	@echo "🔄 Model watchdog is enabled for automatic model reloading"
+	@echo "📁 Shared volumes enable hot reloading across containers"
 	@echo ""
 	docker-compose up -d --build
 	@echo ""
@@ -39,6 +45,7 @@ docker:
 	@echo "📊 Check status: make docker-status"
 	@echo "📋 View logs: make docker-logs"
 	@echo "🛑 Stop services: make docker-stop"
+	@echo "🧪 Test multi-container reloading: make test-multi-reload"
 
 # Docker status check
 docker-status:
@@ -84,10 +91,84 @@ test-bdd:
 	fi
 	uv run pytest tests/bdd/ -v --tb=short
 
+# Watchdog functionality test
+test-watchdog:
+	@echo "🐕 Testing model watchdog functionality..."
+	@echo "📁 Testing automatic model reloading and monitoring"
+	@echo "🔧 Using watchdog file monitoring system"
+	@echo ""
+	@echo "⚠️  Prerequisites:"
+	@echo "   - API server must be running (Docker or local)"
+	@echo "   - Model watchdog must be enabled"
+	@echo "   - Port 8000 must be accessible"
+	@echo ""
+	@echo "🔍 Checking if API server is running..."
+	@if curl -s http://localhost:8000/health > /dev/null 2>&1; then \
+		echo "✅ API server is running on port 8000"; \
+		echo ""; \
+		uv run python tools/test_watchdog.py; \
+	else \
+		echo "❌ API server is not running on port 8000"; \
+		echo ""; \
+		echo "💡 To start the API server, run one of these commands:"; \
+		echo "   make docker     # Start with Docker Compose"; \
+		echo "   make dev        # Start development server"; \
+		echo ""; \
+		echo "Then run: make test-watchdog"; \
+		exit 1; \
+	fi
+
+# Multi-container hot reloading test
+test-multi-reload:
+	@echo "🔄 Testing multi-container hot reloading..."
+	@echo "📁 Testing shared volume model reloading across containers"
+	@echo "🔧 Using enhanced watchdog with container identification"
+	@echo ""
+	@echo "⚠️  Prerequisites:"
+	@echo "   - Docker Compose services must be running"
+	@echo "   - Multiple API instances should be active"
+	@echo "   - Watchdog must be enabled in all containers"
+	@echo ""
+	uv run python tools/test_multi_container_reload.py
+
+# Model evaluation target
+evaluate:
+	@echo "📊 Running comprehensive model evaluation..."
+	@echo "🔍 Analyzing model performance and generalization"
+	@echo "📈 Generating evaluation metrics and visualizations"
+	@echo "📁 Results will be saved to evaluation_results/"
+	@echo ""
+	uv run python tools/evaluate_model.py
+	@echo ""
+	@echo "✅ Model evaluation completed!"
+	@echo "📊 View results: cat evaluation_results/evaluation_report.txt"
+	@echo "🖼️  View visualizations: open evaluation_results/model_evaluation.png"
+
 # Run all tests
 test-all: test-unit test-bdd
 	@echo ""
 	@echo "🎉 All tests completed!"
+
+# Run comprehensive testing (all test types)
+test-comprehensive: test-unit test-bdd test-watchdog test-multi-reload evaluate
+	@echo ""
+	@echo "🎉 Comprehensive testing completed!"
+	@echo "✅ Unit tests, BDD tests, watchdog tests, multi-container tests, and model evaluation completed"
+
+# Start API server and test watchdog (convenience target)
+test-watchdog-with-server:
+	@echo "🚀 Starting API server and testing watchdog..."
+	@echo "📁 This will start the server and then run watchdog tests"
+	@echo ""
+	@echo "Step 1: Starting API server..."
+	make docker
+	@echo ""
+	@echo "Step 2: Waiting for server to be ready..."
+	@echo "⏳ Waiting 10 seconds for server to fully start..."
+	@sleep 10
+	@echo ""
+	@echo "Step 3: Testing watchdog functionality..."
+	make test-watchdog
 
 # Linting target using ruff
 lint:
