@@ -1,5 +1,4 @@
 import logging
-import threading
 
 from fastapi import FastAPI
 
@@ -28,6 +27,7 @@ app.include_router(model_router.router)
 # Store model service in app state for access by routers
 app.state.model_service = model_service
 
+
 def start_watchdog():
     """Start the model file watchdog in a background thread"""
     try:
@@ -37,11 +37,13 @@ def start_watchdog():
     except Exception as e:
         logger.error(f"Failed to start model file watchdog: {e}")
 
+
 @app.on_event("startup")
 async def startup_event():
     """Start the model file watchdog when the application starts"""
     logger.info("Starting model file watchdog...")
     start_watchdog()
+
 
 def main():
     logger.info("App starting...")

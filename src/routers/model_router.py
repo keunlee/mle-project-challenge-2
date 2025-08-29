@@ -6,7 +6,11 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.params import Depends
 
 from core.dependencies import get_model_service
-from models.requests import PredictionResponse, FullFeatureRequest, MinimalFeatureRequest
+from models.requests import (
+    PredictionResponse,
+    FullFeatureRequest,
+    MinimalFeatureRequest,
+)
 from services.model_service import ModelService
 
 # Configure logging
@@ -15,23 +19,36 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
 @router.get("/model-info")
-async def model_info(request: Request, model_service: ModelService = Depends(get_model_service)):
+async def model_info(
+    request: Request, model_service: ModelService = Depends(get_model_service)
+):
     """Get model information"""
     return {
         "model_version": model_service.model_version,
         "features_used": model_service.features,
         "feature_count": len(model_service.features),
-        "model_type": type(model_service.model).__name__ if model_service.model else None
+        "model_type": type(model_service.model).__name__
+        if model_service.model
+        else None,
     }
 
+
 @router.post("/reload-model")
-def reload_model(request: Request, model_service: ModelService = Depends(get_model_service)):
+def reload_model(
+    request: Request, model_service: ModelService = Depends(get_model_service)
+):
     model_service.reload_model()
     return {"status": "reloaded", "version": model_service.model_version}
 
+
 @router.post("/predict/full", response_model=PredictionResponse)
-async def predict_full_features(request: FullFeatureRequest, fastapi_request: Request, model_service: ModelService = Depends(get_model_service)):
+async def predict_full_features(
+    request: FullFeatureRequest,
+    fastapi_request: Request,
+    model_service: ModelService = Depends(get_model_service),
+):
     """Predict house price using all available features"""
 
     start_time = time.time()
@@ -62,8 +79,8 @@ async def predict_full_features(request: FullFeatureRequest, fastapi_request: Re
                 "input_features": request_dict,
                 "demographics_enriched": bool(demographics),
                 "zipcode": request.zipcode,
-                "prediction_timestamp": pd.Timestamp.now().isoformat()
-            }
+                "prediction_timestamp": pd.Timestamp.now().isoformat(),
+            },
         )
 
     except Exception as e:
@@ -72,9 +89,14 @@ async def predict_full_features(request: FullFeatureRequest, fastapi_request: Re
 
 
 @router.post("/predict/minimal", response_model=PredictionResponse)
-async def predict_minimal_features(request: MinimalFeatureRequest, fastapi_request: Request, model_service: ModelService = Depends(get_model_service)):
+async def predict_minimal_features(
+    request: MinimalFeatureRequest,
+    fastapi_request: Request,
+    model_service: ModelService = Depends(get_model_service),
+):
     """Predict house price using only essential features (bonus endpoint)"""
     import time
+
     start_time = time.time()
 
     try:
@@ -104,11 +126,10 @@ async def predict_minimal_features(request: MinimalFeatureRequest, fastapi_reque
                 "demographics_enriched": bool(demographics),
                 "zipcode": request.zipcode,
                 "prediction_timestamp": pd.Timestamp.now().isoformat(),
-                "note": "Prediction made with minimal features + demographics enrichment"
-            }
+                "note": "Prediction made with minimal features + demographics enrichment",
+            },
         )
 
     except Exception as e:
         logger.error(f"Error in minimal feature prediction: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-

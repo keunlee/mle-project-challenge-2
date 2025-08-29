@@ -17,12 +17,17 @@ class FullFeatureRequest(BaseModel):
     sqft_above: int = Field(..., ge=0, description="Square footage above ground")
     sqft_basement: int = Field(..., ge=0, description="Square footage of basement")
     yr_built: int = Field(..., ge=1800, le=2024, description="Year built")
-    yr_renovated: int = Field(..., ge=0, le=2024, description="Year renovated (0 if never)")
+    yr_renovated: int = Field(
+        ..., ge=0, le=2024, description="Year renovated (0 if never)"
+    )
     zipcode: str = Field(..., min_length=5, max_length=5, description="ZIP code")
     lat: float = Field(..., ge=47.0, le=48.0, description="Latitude")
     long: float = Field(..., ge=-123.0, le=-121.0, description="Longitude")
-    sqft_living15: int = Field(..., ge=0, description="Square footage of living space in 2015")
+    sqft_living15: int = Field(
+        ..., ge=0, description="Square footage of living space in 2015"
+    )
     sqft_lot15: int = Field(..., ge=0, description="Square footage of lot in 2015")
+
 
 class MinimalFeatureRequest(BaseModel):
     bedrooms: int = Field(..., ge=0, description="Number of bedrooms")
@@ -34,10 +39,15 @@ class MinimalFeatureRequest(BaseModel):
     sqft_basement: int = Field(..., ge=0, description="Square footage of basement")
     zipcode: str = Field(..., min_length=5, max_length=5, description="ZIP code")
 
+
 class PredictionResponse(BaseModel):
     prediction: float = Field(..., description="Predicted house price")
     confidence: Optional[float] = Field(None, description="Prediction confidence score")
     model_version: str = Field(..., description="Model version identifier")
-    features_used: List[str] = Field(..., description="List of features used for prediction")
-    processing_time_ms: float = Field(..., description="Processing time in milliseconds")
+    features_used: List[str] = Field(
+        ..., description="List of features used for prediction"
+    )
+    processing_time_ms: float = Field(
+        ..., description="Processing time in milliseconds"
+    )
     metadata: Dict = Field(..., description="Additional metadata")

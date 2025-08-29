@@ -30,6 +30,13 @@ dev = ["pytest", "ruff", "black", "mypy"]
 # Auto-discover packages under src/
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-bdd>=8.1.0",
+    "ruff>=0.12.10",
+]
 # (optional) exclude patterns, e.g. nested examples:
 # exclude = ["*_examples*", "experimental*"]
 
